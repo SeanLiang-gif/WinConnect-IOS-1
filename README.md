@@ -57,6 +57,8 @@ To use the WinConnect iOS App, follow these steps:
 **Note:** The WinConnect iOS App is currently in the testing phase, and certain functions may still be undergoing debugging. Please bear this in mind and report any issues or inconsistencies you encounter during usage.
 
 
+## License
 
+This project is licensed under the [MIT License](LICENSE).
 
 
