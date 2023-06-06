@@ -9,11 +9,16 @@ class TCPServer: ObservableObject {
     private let queue = DispatchQueue(label: "TCPServer")
     private var listener: NWListener?
     
-    func start() {
+    func start(port: UInt16) {
         let parameters = NWParameters.tcp
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+            print("Invalid port number.")
+            return
+        }
+
         do {
             print("connecting")
-            listener = try NWListener(using: parameters, on: 1272)
+            listener = try NWListener(using: parameters, on: nwPort)
         } catch {
             print("Failed to initialize listener: \(error)")
             return

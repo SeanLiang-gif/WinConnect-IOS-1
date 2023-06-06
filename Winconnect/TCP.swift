@@ -1,108 +1,134 @@
 import Foundation
+import Network
+import Combine
 
-let PORT: UInt32 = 1278
+let PORT: UInt32 = 51234
 
 class TCPClient {
     let serverIP: String
+    var connection: NWConnection?
     var inputStream: InputStream?
     var outputStream: OutputStream?
+    @Published var cpuUsage: Float = 0.0
+    @Published var ramUsage: Float = 0.0
+    var shouldReceive: Bool = true
 
     init(serverIP: String) {
         self.serverIP = serverIP
     }
+    
+    func setReciveFlag(){
+        shouldReceive = true
+    }
+    
+    func run(IP: String, port: UInt16) -> Bool {
+        let connection = NWConnection(host: NWEndpoint.Host(IP), port: NWEndpoint.Port(rawValue: UInt16(port))!, using: .tcp)
 
-    func run() -> Bool {
-        var readStream: Unmanaged<CFReadStream>?
-        var writeStream: Unmanaged<CFWriteStream>?
-
-        CFStreamCreatePairWithSocketToHost(nil, serverIP as CFString, PORT, &readStream, &writeStream)
-
-        inputStream = readStream?.takeRetainedValue()
-        outputStream = writeStream?.takeRetainedValue()
-
-        let semaphore = DispatchSemaphore(value: 0)
-
-        DispatchQueue.global().async {
-            self.inputStream?.open()
-            self.outputStream?.open()
-
-            print("Connecting to the receiver...")
-
-            semaphore.signal()
+        connection.stateUpdateHandler = { newState in
+            switch newState {
+            case .ready:
+                print("Connected to the receiver")
+                self.receive(on: connection)
+            case .failed(let error):
+                print("Connection failed with error: \(error)")
+                self.connection = nil
+            default:
+                break
+            }
         }
 
-        let timeoutInSeconds: TimeInterval = 5
-        let timeoutResult = semaphore.wait(timeout: .now() + timeoutInSeconds)
+        connection.start(queue: .global())
 
-        if timeoutResult == .timedOut {
-            print("Connection timeout")
-            return false
-        }
-
-        print("Connected to the receiver")
+        self.connection = connection
         return true
     }
 
     func sendCommand(_ command: String) {
-        DispatchQueue.global().async {
-            guard let outputStream = self.outputStream else {
-                print("Output stream is not available")
-                return
+        let data = command.data(using: .utf8)!
+        connection?.send(content: data, completion: .contentProcessed { error in
+            if let error = error {
+                print("Send failed with error: \(error)")
+            } else {
+                print("Data sent")
             }
-
-            let data = command.data(using: .utf8)!
-            let bytesSent = data.withUnsafeBytes { outputStream.write($0.bindMemory(to: UInt8.self).baseAddress!, maxLength: data.count) }
-
-            if bytesSent == -1 {
-                print("Send failed")
-            } else if bytesSent == 0 {
-                print("Connection closed by the server")
-            }
-        }
+        })
     }
     
-    func receivePCData() -> (cpuUsage: Int, ramUsage: Int) {
-        var cpuUsage = 0
-        var ramUsage = 0
-        
-        DispatchQueue.global().async {
+    func startReceiving() {
             guard let inputStream = self.inputStream else {
                 print("Input stream is not available")
                 return
             }
-            
-            var buffer = [UInt8](repeating: 0, count: 1024)
-            let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
-            
-            if bytesRead <= 0 {
-                print("Failed to receive data")
-                return
+
+            while inputStream.hasBytesAvailable {
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                let bytesRead = inputStream.read(&buffer, maxLength: buffer.count)
+                if bytesRead < 0 {
+                    if let error = inputStream.streamError {
+                        print("Read failed with error: \(error)")
+                    }
+                    // Cleanup and close if required
+                    self.closeConnection()
+                    return
+                } else if bytesRead == 0 {
+                    print("Connection closed by the server")
+                    // Cleanup and close if required
+                    self.closeConnection()
+                    return
+                } else {
+                    // Successfully read from stream
+                    if let message = String(bytes: buffer, encoding: .utf8) {
+                        print("test")
+                        print("Received message: \(message)")
+                        self.updateUsages(from: message)
+                    }
+                }
             }
-            
-            let receivedData = Data(bytes: buffer, count: bytesRead)
-            
-            guard let receivedString = String(data: receivedData, encoding: .utf8) else {
-                print("Failed to decode received data")
-                return
+    }
+    
+    private func updateUsages(from message: String) {
+        // Parse and update the values
+        let dataParts = message.split(separator: ",")
+        if dataParts.count >= 2,
+           let cpu = Float(dataParts[0]),
+           let ram = Float(dataParts[1]) {
+            DispatchQueue.main.async {
+                self.cpuUsage = cpu
+                self.ramUsage = ram
+                print("test")
+                print("Updated CPU usage: \(self.cpuUsage), RAM usage: \(self.ramUsage)")
             }
-            
-            let usageComponents = receivedString.components(separatedBy: "|")
-            
-            // Extract CPU usage
-            let cpuUsageString = usageComponents[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            cpuUsage = Int(cpuUsageString) ?? 0
-            
-            // Extract RAM usage
-            let ramUsageString = usageComponents[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            ramUsage = Int(ramUsageString) ?? 0
+        } else {
+            print("Failed to parse message: \(message)")
         }
-        
-        return (cpuUsage, ramUsage)
+    }
+
+    private func receive(on connection: NWConnection?) {
+        connection?.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] (data, context, isComplete, error) in
+            guard let strongSelf = self else { return }
+            if let data = data, let message = String(data: data, encoding: .utf8) {
+                strongSelf.updateUsages(from: message)
+            }
+
+            if let error = error {
+                print("Failed to receive data: \(error)")
+                connection?.cancel()
+            }
+            // else if !isComplete && strongSelf.shouldReceive { // Removed this line
+            //     strongSelf.receive(on: connection) // And this line
+            // }
+        }
+    }
+
+    
+    func stopReceiving() {
+        self.shouldReceive = false
     }
 
     func closeConnection() {
-        inputStream?.close()
-        outputStream?.close()
+        connection?.cancel()
+        connection = nil
+        print("Connection closed")
     }
 }
 
