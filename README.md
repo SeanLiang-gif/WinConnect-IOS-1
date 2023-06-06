@@ -1,5 +1,7 @@
 # WinConnect IOS App
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Demo of the App
 
 <p align="center" style="display: flex; justify-content: center; gap: 40px;">
