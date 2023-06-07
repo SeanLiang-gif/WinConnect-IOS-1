@@ -7,9 +7,8 @@
 <p align="center" style="display: flex; justify-content: center; gap: 40px;">
   <img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/784f4d69-07c6-4f60-b085-4f3cf3848430" alt="Image 1" width="300" />
   <img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/53ac0832-59a8-4cb2-af8a-4b0f55cf0932" alt="Image 2" width="300" />
-  <img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/18931ff1-54c1-42be-a69f-31f8c65af43e" alt="Image 3" width="300" />
+  <img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/10602bc9-ba99-473e-aec0-a88455b466c2" alt="Image 3" width="300" />
 </p>
-
 
 
 ## Summary
@@ -34,7 +33,7 @@ With the hardware monitor functionality, you can view detailed information about
 
 Take control of your media playback using the WinConnect iOS App. Through the app, you can remotely control media playback on your PC, allowing you to play, pause, adjust volume, and perform other media-related actions from your iOS device.
 
-<img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/18931ff1-54c1-42be-a69f-31f8c65af43e" alt="Image 3" width="300" />
+<img src="https://github.com/SeanLiang-gif/WinConnect-IOS-1/assets/123599069/10602bc9-ba99-473e-aec0-a88455b466c2" alt="Image 3" width="300" />
 
 ## How to Use
 
